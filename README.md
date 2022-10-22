@@ -7,7 +7,7 @@
 
 ## Analysis techniques used
 
-R, Python(Matplotlib, Seaborn, Pandas, TensorFlow)
+R, Python(Matplotlib, Seaborn, Pandas, Numpy, TensorFlow）
 
 ## Data sources and description
 
