@@ -5,17 +5,13 @@ import plotly.express as px
 import pandas as pd
 
 df = pd.read_csv('data/processed/WorkingHours_cleaned.csv')
-df['Day'] = pd.to_datetime(df['Day'])
-df['Month'] = df['Day'].dt.to_period('M').astype(str)
-df['Duration'] = df['Duration'].str.replace(' min', '').astype(int)
-df['Task'] = df['Task'].fillna('Other')
 
-# Initialize the Dash app
 app = dash.Dash(__name__)
 
-# Define the layout of the app
+
 app.layout = html.Div([
     html.H1("Study Time Dashboard"),
+
 
     # Date Range Picker
     dcc.DatePickerRange(
@@ -28,9 +24,9 @@ app.layout = html.Div([
     # Task Filter
     dcc.Dropdown(
         id='task-filter',
-        options=[{'label': task, 'value': task}
-                 for task in df['Task'].unique()],
-        value=df['Task'].unique(),  # Default to all tasks
+        options=[{'label': task_category, 'value': task_category}
+                 for task_category in df['Task Category'].unique()],
+        value=df['Task Category'].unique(),  # Default to all tasks
         multi=True,
         placeholder="Select Task(s)"
     ),
@@ -44,9 +40,11 @@ app.layout = html.Div([
     # Graph 3: Most Time-Consuming Task per Month
     dcc.Graph(id='most-time-task-month'),
 
-])
+    # Graph 4: Task Percentage Time Series
+    dcc.Graph(id='task-percentage-time-series'),
 
-# Callback to update graphs based on filters
+
+])
 
 
 @app.callback(
@@ -54,6 +52,7 @@ app.layout = html.Div([
         Output('daily-study-time', 'figure'),
         Output('task-distribution-stacked', 'figure'),
         Output('most-time-task-month', 'figure'),
+        Output('task-percentage-time-series', 'figure'),
     ],
 
     [
@@ -80,11 +79,31 @@ def update_graphs(start_date, end_date, selected_tasks):
         y='Duration',
         title='Daily Study Time',
         color_discrete_sequence=px.colors.qualitative.Set2
+
+    )
+
+    fig1.update_layout(
+        plot_bgcolor='white'
+    )
+
+    fig1.update_xaxes(
+        mirror=True,
+        ticks='outside',
+        showline=True,
+        linecolor='black',
+        gridcolor='lightgrey'
+    )
+    fig1.update_yaxes(
+        mirror=True,
+        ticks='outside',
+        showline=True,
+        linecolor='black',
+        gridcolor='lightgrey'
     )
 
     # Graph 2: Task Distribution (Stacked Bar Chart)
     task_distribution = filtered_df.groupby(
-        ['Day', 'Task'])['Duration']\
+        ['Day', 'Task Category'])['Duration']\
         .sum()\
         .reset_index()
 
@@ -92,13 +111,33 @@ def update_graphs(start_date, end_date, selected_tasks):
         task_distribution,
         x='Day',
         y='Duration',
-        color='Task',
-        title='Task Distribution ',
-        barmode='stack')
+        color='Task Category',
+        title='Task Category Distribution ',
+        color_discrete_sequence=px.colors.qualitative.Antique
+    )
+
+    fig2.update_layout(
+        plot_bgcolor='white'
+    )
+
+    fig2.update_xaxes(
+        mirror=True,
+        ticks='outside',
+        showline=True,
+        linecolor='black',
+        gridcolor='lightgrey'
+    )
+    fig2.update_yaxes(
+        mirror=True,
+        ticks='outside',
+        showline=True,
+        linecolor='black',
+        gridcolor='lightgrey'
+    )
 
     # Graph 3: Most Time-Consuming Task per Month
     most_time_task_month = filtered_df.groupby(
-        ['Month', 'Task'])['Duration']\
+        ['Month', 'Task Category'])['Duration']\
         .sum()\
         .reset_index()
 
@@ -110,14 +149,80 @@ def update_graphs(start_date, end_date, selected_tasks):
         most_time_task_month,
         x='Month',
         y='Duration',
-        color='Task',
+        color='Task Category',
         title='Most Time-Consuming Task per Month',
-        color_discrete_sequence=px.colors.qualitative.Set2
+        color_discrete_sequence=px.colors.qualitative.Antique
     )
 
-    return fig1, fig2, fig3
+    fig3.update_layout(
+        plot_bgcolor='white'
+    )
+
+    fig3.update_xaxes(
+        mirror=True,
+        ticks='outside',
+        showline=True,
+        linecolor='black',
+        gridcolor='lightgrey'
+    )
+    fig3.update_yaxes(
+        mirror=True,
+        ticks='outside',
+        showline=True,
+        linecolor='black',
+        gridcolor='lightgrey'
+    )
+
+    # Graph 4
+    total_duration_per_day = filtered_df.groupby(
+        'Month')['Duration'].sum().reset_index()
+    total_duration_per_day = total_duration_per_day.rename(
+        columns={'Duration': 'Total_Duration'})
+
+    # Merge total duration with the filtered dataframe
+    task_percentage = filtered_df.merge(total_duration_per_day,
+                                        on='Month')
+
+    # Calculate percentage of time spent on each task per day
+    task_percentage['Percentage'] = (
+        task_percentage['Duration'] / task_percentage['Total_Duration']) * 100
+
+    fig4 = px.area(
+        task_percentage,
+        x='Month',
+        y='Percentage',
+        color='Task Category',
+        title='Percentage of Time Spent on Tasks Over Time',
+        labels={'Percentage': 'Percentage of Time (%)'},
+        color_discrete_sequence=px.colors.qualitative.Antique,
+        groupnorm='percent',
+        line_shape='hvh'
+
+    )
+
+    fig4.update_layout(
+        plot_bgcolor='white'
+    )
+
+    fig4.update_xaxes(
+        mirror=True,
+        ticks='outside',
+        showline=True,
+        linecolor='black',
+        gridcolor='lightgrey'
+    )
+    fig4.update_yaxes(
+        mirror=True,
+        ticks='outside',
+        showline=True,
+        linecolor='black',
+        gridcolor='lightgrey'
+    )
+
+    fig4.for_each_trace(lambda trace: trace.update(fillcolor=trace.line.color))
+
+    return fig1, fig2, fig3, fig4
 
 
-# Run the app
 if __name__ == '__main__':
     app.run_server(debug=True)
